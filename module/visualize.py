@@ -75,6 +75,36 @@ class Visualize:
         self.support_end = support_end
         self.tei, self.teo, self.tsp = tei, teo, tsp
         self.defect_channel, self.defect_group = detection_channel, defect_group
+        
+    def select_proper_defect_ai(self):
+        return_tensor = []
+        return_tsp_range = []
+        for i, candidate in enumerate(self.defect_ai):
+            if candidate[0] < self.tei:
+                continue
+            if candidate[1] > self.teo:
+                break
+            
+            defect_start = candidate[0]
+            defect_end = candidate[1]
+            
+            
+            tsp_list = [self.tei] + self.tsp + [self.teo]
+            for j, tsp in enumerate(tsp_list):
+                if defect_end < tsp:
+                    break
+            
+            tsp_range = (tsp_list[j-1], tsp_list[j])
+            
+            if defect_start in range(tsp_range[0]-50, tsp_range[0]+50):
+                continue
+            elif defect_end in range(tsp_range[1]-50, tsp_range[1]+50):
+                continue
+            
+            return_tensor.append((defect_start, defect_end))
+            return_tsp_range.append(tsp_range)
+            
+        return return_tensor, return_tsp_range
             
     def visualize_all(self) :
         try:
@@ -155,31 +185,17 @@ class Visualize:
         fig = get_lissajous(self.df, defect_start, defect_end, channel=self.defect_channel, verbose=True)
         fig.write_image(os.path.join('./', self.pns, 'picture','tool', 'defect_tool.png'))
         
-        return_tensor = []
+        return_tensor, return_tsp_range = self.select_proper_defect_ai()
+        iter_num = len(return_tensor)
         numbering = 1
-        for idx, candidate in enumerate(self.defect_ai):
-            if candidate[0] < self.tei:
-                continue
-            if candidate[1] > self.teo:
-                break
+        for idx in range(iter_num):
+            defect_candi = return_tensor[idx]
+            tsp_range = return_tsp_range[idx]
             
-            defect_start = candidate[0]
-            defect_end = candidate[1]
+            defect_start = defect_candi[0]
+            defect_end = defect_candi[1]
             
-            target_df = self.df[defect_start:defect_end]
-            
-            tsp_list = [self.tei] + self.tsp + [self.teo]
-            for idx, tsp in enumerate(tsp_list):
-                if defect_end < tsp:
-                    break
-            tsp_range = (tsp_list[idx-1], tsp_list[idx])
-            
-            if defect_start in range(tsp_range[0]-50, tsp_range[0]+50):
-                continue
-            elif defect_end in range(tsp_range[1]-50, tsp_range[1]+50):
-                continue
-            
-            return_tensor.append((defect_start, defect_end))
+            target_df = self.df[defect_candi[0]:defect_candi[1]]
             
             degree_1 = math.degrees(math.atan((max(target_df['CH1Y'])-min(target_df['CH1Y']))/(max(target_df['CH1X'])-min(target_df['CH1X']))))
             degree_3 = math.degrees(math.atan((max(target_df['CH3Y'])-min(target_df['CH3Y']))/(max(target_df['CH3X'])-min(target_df['CH3X']))))
