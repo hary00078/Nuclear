@@ -63,18 +63,17 @@ class LSTM(nn.Module):
         
         super().__init__()
         self.embed = nn.Embedding(5, hidden_dim*2)
-        self.lstm_list =nn.ModuleList([nn.LSTM(1, hidden_dim, n_layers, bidirectional=bidirectional,
-                            dropout=dropout_rate, batch_first=True) for _ in range(16)])
+        self.lstm_list =nn.ModuleList([nn.LSTM(2, hidden_dim, n_layers, bidirectional=bidirectional,
+                            dropout=dropout_rate, batch_first=True) for _ in range(8)])
         self.att = Attention(hidden_dim*2)
         self.fc = nn.Linear(hidden_dim*2 if bidirectional else hidden_dim, output_dim)
         self.dropout = nn.Dropout(dropout_rate)
         
     def execute_lstm(self, X):
-        ch_num = X.shape[-1]
+        ch_num = X.shape[-1]//2
         hidden_list = []
-        
         for i in range(ch_num):
-            channel = X[:, :, i].unsqueeze(-1)
+            channel = X[:, :, 2*i:2*(i+1)]
             lstm = self.lstm_list[i]
             hidden, _ = lstm(channel)
             logit = hidden[:, -1, :]
@@ -84,6 +83,8 @@ class LSTM(nn.Module):
             
     
     def forward(self, X):
+        mean = torch.mean(X, 1, True)
+        X = X-mean
         lstm_out = self.execute_lstm(X)
         m = torch.tensor([[0, 1, 2, 3, 4]]).expand(X.shape[0], -1).to(X.device)
         m_embed = self.embed(m)
